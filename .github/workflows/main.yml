@@ -9,20 +9,32 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Find project folder
         run: |
-          P=$(dirname "$(find . -name settings.gradle.kts -not -path './.git/*' | head -1)")
+          F=$(find . -name settings.gradle.kts -not -path './.git/*' | head -1)
+          if [ -z "$F" ]; then
+            echo "::error::settings.gradle.kts not found. Upload the files from inside the zip, not the zip itself."
+            ls -la
+            exit 1
+          fi
+          P=$(dirname "$F")
           echo "PROJ=$P" >> $GITHUB_ENV
           echo "Project folder: $P"
+          ls -la "$P" "$P/app"
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
+      - name: Prepare Android SDK (preinstalled on the runner)
+        run: |
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" --install "platforms;android-35" "build-tools;35.0.0" "platform-tools" > /dev/null
+          echo "sdk.dir=$ANDROID_HOME" > "$PROJ/local.properties"
 
       - uses: gradle/actions/setup-gradle@v4
         with:
