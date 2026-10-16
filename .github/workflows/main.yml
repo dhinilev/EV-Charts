@@ -11,15 +11,26 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Find project folder
+      - name: Find project folder (unzips the uploaded zip if needed)
         run: |
-          F=$(find . -name settings.gradle.kts -not -path './.git/*' | head -1)
-          if [ -z "$F" ]; then
-            echo "::error::settings.gradle.kts not found. Upload the files from inside the zip, not the zip itself."
-            ls -la
-            exit 1
+          if [ -f settings.gradle.kts ] && [ -d app ]; then
+            P=.
+          else
+            Z=$(ls -1 *.zip 2>/dev/null | sort -V | tail -1)
+            if [ -z "$Z" ]; then
+              echo "::error::No app folder and no zip found in the repo."
+              ls -la
+              exit 1
+            fi
+            echo "Using $Z"
+            rm -rf _src && mkdir _src && unzip -q "$Z" -d _src
+            F=$(find _src -name settings.gradle.kts | head -1)
+            if [ -z "$F" ]; then
+              echo "::error::$Z does not contain settings.gradle.kts"
+              exit 1
+            fi
+            P=$(dirname "$F")
           fi
-          P=$(dirname "$F")
           echo "PROJ=$P" >> $GITHUB_ENV
           echo "Project folder: $P"
           ls -la "$P" "$P/app"
